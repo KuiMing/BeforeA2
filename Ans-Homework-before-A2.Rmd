@@ -1,0 +1,162 @@
+---
+title: "Homework before A2 Class"
+author: "Ben"
+date: "Saturday, May 09, 2015"
+email: "benjamin0901@gmail.com"
+output:
+  html_document:
+    theme: spacelab
+    fig_width: 10
+    fig_height: 7.5
+    css: styles.css
+---
+複習
+---
+<br>
+在A2的課程開始之前，請大家先複習一下A1的課程，尤其是與R相關的部分：
+
+- http://dspim.github.io/A1-EDA-R/EDA-R.html
+- http://dspim.github.io/A1-EDA-R/intro-rmd/
+- https://dspim.github.io/A1-EDA-R/answer-advanced-EDA.html
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(warning=FALSE,message=FALSE)
+```
+<br>
+
+## 以下兩個小問題，請大家練習一下：
+<br>
+
+### 1. 
+
+小明想在永和找到新房子，希望以後上下班都靠Ubike通勤，希望早上可以輕鬆租到車，下班後也可以輕鬆還車，請幫他找出永和區早上七點腳踏車最多的場站，並且畫出一天24小時的平均空車率。
+
+
+- 提示：
+
+    * 會使用到的package: dplyr、ggplot2、ggmap
+    * select可用來挑選需要用到的欄位
+    * filter可選出符合條件的資料
+    * group_by針對同一欄的元素分類
+    * summarise搭配group_by將同一類的值一起處理
+    * 利用order排序找出車最多的地點，`help(order)`會幫你
+    * 請用geom_bar畫bar plot
+
+**結果如下：**
+
+```{r,eval=FALSE}
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+
+
+# 讀檔，path請自行代入檔案路徑，如：'D:/Downloads/ubikeweatherbig5.csv'
+ubike <- read.table(path, sep = ",", header = TRUE,
+         colClasses = c("factor", "integer","integer", "factor", "factor",
+                        "numeric", "numeric", "integer", "numeric", "integer",
+                        "integer","numeric", "numeric", "integer", "integer", 
+                        "numeric", "numeric","numeric", "numeric", "numeric", "numeric"))
+
+# 挑選永和區與早上7點，算每個場站的平均車數
+ubike1<- select(ubike,hour,sarea,sna,avg.sbi) %>%
+  filter(sarea=='永和區' & hour==7) %>%
+  group_by(sna) %>%
+  summarise(avg=mean(avg.sbi))
+
+# 將平均車數排序，decreasing=TRUE，表示數字由大排到小
+order_avg<-order(ubike1[["avg"]],decreasing = TRUE)
+
+# 排序後，order_avg的第一個值即為ubike1[["avg"]]的最大值
+target=ubike1[["sna"]][order_avg[1]]
+
+# 新增一欄作為空車率rate，並挑出平均車數最大的場站，計算每小時的平均空車率avg.rate
+ubike2<- select(ubike,hour,sna,tot,avg.bemp) %>%
+  mutate(rate=avg.bemp/tot) %>%
+  filter(sna==target) %>%
+  group_by(hour) %>%
+  summarise(avg.rate=mean(rate))
+
+# 使用geom_bar畫bar plot，設定stat='identity'，才能讓bar的高度依照avg.rate畫出
+# text=element_text(size=20)控制字體大小
+ggplot(ubike2)+
+  geom_bar(aes(x=hour,y=avg.rate),stat='identity')+
+  labs(x="時間", y="平均空車率")+
+  theme(text=element_text(size=18))
+```
+
+```{r echo=FALSE}
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+
+
+# 
+# ubike <- read.table('D:/Downloads/ubikeweatherbig5.csv', sep = ",", header = TRUE,colClasses = c("factor", "integer", "integer", "factor", "factor","numeric", "numeric", "integer", "numeric", "integer", "integer","numeric", "numeric", "integer", "integer", "numeric", "numeric","numeric", "numeric", "numeric", "numeric"))
+load('ubike.RData')
+
+ubike1<- select(ubike,hour,sarea,sna,avg.sbi) %>%
+  filter(sarea=='永和區' & hour==7) %>%
+  group_by(sna) %>%
+  summarise(avg=mean(avg.sbi))
+
+order_avg<-order(ubike1[["avg"]],decreasing = TRUE)
+
+target=ubike1[["sna"]][order_avg[1]]
+
+ubike2<- select(ubike,hour,sna,tot,avg.bemp) %>%
+  mutate(rate=avg.bemp/tot) %>%
+  filter(sna==target) %>%
+  group_by(hour) %>%
+  summarise(avg.rate=mean(rate))
+ggplot(ubike2)+
+  geom_bar(aes(x=hour,y=avg.rate),stat='identity')+
+  labs(x="時間", y="平均空車率")+
+  theme(text=element_text(size=18))
+```
+
+<br>
+
+### 2.
+
+小明喜歡玩遙控飛機，在永和希望找一個風比較小的地點來玩，請幫他在地圖上圈出每個腳踏車站的位置，並且以圓圈大小表示2014-12-31當天下午3點的風速。
+
+- 提示：
+
+    * 需要的package：ggmap
+    * get_map可以從google map抓下地圖
+    * 在aes()中可放入size=max.anemo，讓以圓圈大小代表風速
+
+**結果如下：**
+```{r,eval=FALSE}
+library(ggmap)
+# 選擇永和區2014-12-31下午3點
+ubike3<- filter(ubike,sarea=='永和區', date=="2014-12-31",hour==15)
+
+# 讀取永和區的地圖，以永和區的第一筆資料的經緯度為中心
+m<-get_map(location=c(lon=ubike3$lng[1], lat=ubike3$lat[1]),             maptype = "roadmap", zoom = 14)
+
+# ggmap(m)畫出地圖，並以此為底圖，在地圖上以geom_point畫出圓圈
+# aes(x=lng,y=lat,size=max.anemo)，X和Y為經緯度，size則是以max.anemo為依據
+# geom_text將站名顯示於地圖上，vjust與hjust分別控制垂直與水平方向的微調
+# facebold: 字型樣式，1代表標準，2代表粗體，3代表斜體，4代表斜粗體
+# legend.position="none"將原本會出現的legend隱藏
+ggmap(m)+
+  geom_point(data=ubike3,aes(x=lng,y=lat,size=max.anemo),color='blue',alpha=0.75)+
+  scale_size(range = c(5,20))+
+  geom_text(data=ubike3,aes(x=lng,y=lat,label=sna),color='red',vjust=-1,hjust=-0.17,fontface=2)+
+  theme(text=element_text(size=20),legend.position="none")
+  
+```
+
+```{r,echo=FALSE}
+library(ggmap)
+
+ubike3<- filter(ubike,sarea=='永和區' , date=="2014-12-31",hour==15)
+
+m<-get_map(location=c(lon=ubike3$lng[1], lat=ubike3$lat[1]) , 
+               maptype = "roadmap", zoom = 14)
+ggmap(m)+geom_point(data=ubike3,aes(x=lng,y=lat,size=max.anemo),color='blue',alpha=0.75)+scale_size(range = c(5,20))+geom_text(data=ubike3,aes(x=lng,y=lat,label=sna),color='red',vjust=-1,hjust=-0.17,fontface=2)+theme(text=element_text(size=20),legend.position="none")
+  
+```
+
+# Good Luck!

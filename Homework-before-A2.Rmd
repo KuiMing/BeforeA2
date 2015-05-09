@@ -1,0 +1,95 @@
+---
+title: "Homework before A2 Class"
+author: "Ben"
+date: "Saturday, May 09, 2015"
+email: "benjamin0901@gmail.com"
+output:
+  html_document:
+    theme: spacelab
+    fig_width: 10
+    fig_height: 7.5
+    css: styles.css
+---
+複習
+---
+<br>
+在A2的課程開始之前，請大家先複習一下A1的課程，尤其是與R相關的部分：
+
+- http://dspim.github.io/A1-EDA-R/EDA-R.html
+- http://dspim.github.io/A1-EDA-R/intro-rmd/
+- https://dspim.github.io/A1-EDA-R/answer-advanced-EDA.html
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = FALSE,warning=FALSE,message=FALSE)
+```
+<br>
+
+## 以下兩個小問題，請大家練習一下：
+<br>
+
+### 1. 
+
+小明想在永和找到新房子，希望以後上下班都靠Ubike通勤，希望早上可以輕鬆租到車，下班後也可以輕鬆還車，請幫他找出永和區早上七點腳踏車最多的場站，並且畫出一天24小時的平均空車率。
+
+
+- 提示：
+
+    * 會使用到的package: dplyr、ggplot2、ggmap
+    * select可用來挑選需要用到的欄位
+    * filter可選出符合條件的資料
+    * group_by針對同一欄的元素分類
+    * summarise搭配group_by將同一類的值一起處理
+    * 利用order排序找出車最多的地點，`help(order)`會幫你
+    * 請用geom_bar畫bar plot
+
+**結果如下：**
+```{r}
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+
+
+ubike <- read.table('ubikeweatherbig5.csv', sep = ",", header = TRUE,colClasses = c("factor", "integer", "integer", "factor", "factor","numeric", "numeric", "integer", "numeric", "integer", "integer","numeric", "numeric", "integer", "integer", "numeric", "numeric","numeric", "numeric", "numeric", "numeric"))
+
+
+ubike1<- select(ubike,hour,sarea,sna,avg.sbi) %>%
+  filter(sarea=='永和區' & hour==7) %>%
+  group_by(sna) %>%
+  summarise(avg=mean(avg.sbi))
+
+order_avg<-order(ubike1[["avg"]],decreasing = TRUE)
+
+target=ubike1[["sna"]][order_avg[1]]
+
+ubike2<- select(ubike,hour,sna,tot,avg.bemp) %>%
+  mutate(rate=avg.bemp/tot) %>%
+  filter(sna==target) %>%
+  group_by(hour) %>%
+  summarise(avg.rate=mean(rate))
+ggplot(ubike2)+geom_bar(aes(x=hour,y=avg.rate),stat='identity')+labs(x="時間", y="平均空車率")+theme(text=element_text(size=18))
+```
+
+<br>
+
+### 2.
+
+小明喜歡玩遙控飛機，在永和希望找一個風比較小的地點來玩，請幫他在地圖上圈出每個腳踏車站的位置，並且以圓圈大小表示2014-12-31當天下午3點的風速。
+
+- 提示：
+
+    * 需要的package：ggmap
+    * get_map可以從google map抓下地圖
+    * 在aes()中可放入size=max.anemo，讓以圓圈大小代表風速
+
+**結果如下：**
+```{r}
+library(ggmap)
+ubike3<- filter(ubike,sarea=='永和區' & date=="2014-12-31",hour==15)
+
+m<-get_map(location=c(lon=ubike3$lng[1], lat=ubike3$lat[1]) , 
+               maptype = "roadmap", zoom = 14)
+ggmap(m)+geom_point(data=ubike3,aes(x=lng,y=lat,size=max.anemo),color='blue',alpha=0.75)+scale_size(range = c(5,20))+geom_text(data=ubike3,aes(x=lng,y=lat,label=sna),color='red',vjust=-1,hjust=-0.17,face='bold',fontface=2)+theme(text=element_text(size=20),legend.position="none")
+  
+```
+
+# Good Luck!
